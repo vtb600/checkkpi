@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bộ công cụ KPI — Trang chủ</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--tx:#1b2433;--mut:#64708a;--bd:#dde3ee;--pri:#005a9c;--prid:#004a80;--hd:#0f2740}
+@media(prefers-color-scheme:dark){:root{--bg:#10151f;--card:#18202e;--tx:#e8edf6;--mut:#93a0b8;--bd:#2a3548;--pri:#4da3e8;--prid:#2f7fbd;--hd:#0a111c}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column}
+header{background:var(--hd);color:#fff;padding:14px 20px 0;flex:0 0 auto}
+.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px}
+.brand span{color:#9fb4cc;font-size:12.5px}
+.tabs{display:flex;gap:4px;margin-top:12px;overflow-x:auto;scrollbar-width:thin}
+.tab{appearance:none;border:0;background:transparent;color:#b9c9dc;font:inherit;font-weight:600;padding:10px 16px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:8px;transition:.15s;border-bottom:3px solid transparent}
+.tab:hover{background:rgba(255,255,255,.08);color:#fff}
+.tab[aria-selected="true"]{background:var(--bg);color:var(--tx);border-bottom-color:var(--pri)}
+.tab .num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.14);font-size:11.5px;font-weight:700;flex:0 0 auto}
+.tab[aria-selected="true"] .num{background:var(--pri);color:#fff}
+.bar{display:flex;gap:8px;align-items:center;padding:8px 20px;background:var(--card);border-bottom:1px solid var(--bd);flex:0 0 auto}
+.bar .cap{color:var(--mut);font-size:12.5px;margin-right:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn{font:inherit;font-weight:600;color:var(--pri);background:transparent;border:1px solid var(--bd);border-radius:7px;padding:6px 12px;cursor:pointer;transition:.15s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--pri);border-color:var(--pri);color:#fff}
+main{flex:1 1 auto;position:relative;min-height:0;background:var(--bg)}
+.panel{position:absolute;inset:0;display:none}
+.panel.active{display:block}
+.panel iframe{width:100%;height:100%;border:0;display:block;background:var(--bg)}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--mut);text-align:center;padding:24px}
+.spin{width:26px;height:26px;border:3px solid var(--bd);border-top-color:var(--pri);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(max-width:600px){
+  header{padding:12px 12px 0}
+  .bar{padding:8px 12px}
+  .tab{padding:9px 11px;font-size:13px}
+  .bar .cap{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Bộ công cụ KPI</h1>
+    <span>Chọn một tab để mở công cụ tương ứng</span>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Danh sách công cụ">
+    <button class="tab" role="tab" id="tab-0" aria-controls="panel-0" aria-selected="true" data-src="ket-xuat-bao-cao-kpi-V2.html">
+      <span class="num">1</span>Kết xuất báo cáo KPI
+    </button>
+    <button class="tab" role="tab" id="tab-1" aria-controls="panel-1" aria-selected="false" data-src="kiem-tra-giao-kpi.html">
+      <span class="num">2</span>Kiểm tra giao KPI
+    </button>
+    <button class="tab" role="tab" id="tab-2" aria-controls="panel-2" aria-selected="false" data-src="kiem-tra-trong-so.html">
+      <span class="num">3</span>Kiểm tra trọng số
+    </button>
+    <button class="tab" role="tab" id="tab-3" aria-controls="panel-3" aria-selected="false" data-src="so-sanh-solieuTP.html">
+      <span class="num">4</span>So sánh số liệu TP
+    </button>
+  </nav>
+</header>
+<div class="bar">
+  <span class="cap" id="cap">Đang mở: Kết xuất báo cáo KPI</span>
+  <button class="btn" id="reload" type="button">Tải lại</button>
+  <a class="btn" id="open" href="#" target="_blank" rel="noopener">Mở riêng</a>
+</div>
+<main id="main"></main>
+<script>
+(function () {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var main = document.getElementById('main');
+  var cap = document.getElementById('cap');
+  var openLink = document.getElementById('open');
+  var reload = document.getElementById('reload');
+
+  var panels = tabs.map(function (tab, i) {
+    var panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = 'panel-' + i;
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', 'tab-' + i);
+    main.appendChild(panel);
+    return panel;
+  });
+
+  var loaded = {};
+  var current = -1;
+
+  function load(i) {
+    var tab = tabs[i];
+    var panel = panels[i];
+    var src = tab.getAttribute('data-src');
+    if (loaded[i]) {
+      updateBar(i);
+      return;
+    }
+    loaded[i] = true;
+    var iframe = document.createElement('iframe');
+    iframe.title = tab.textContent.trim();
+    iframe.src = src;
+    iframe.setAttribute('loading', 'lazy');
+    panel.appendChild(iframe);
+    reload.disabled = false;
+    updateBar(i);
+  }
+
+  function updateBar(i) {
+    var name = tabs[i].textContent.trim().replace(/^\d+\s*/, '');
+    var src = tabs[i].getAttribute('data-src');
+    cap.textContent = 'Đang mở: ' + name;
+    openLink.href = src;
+  }
+
+  function select(i) {
+    if (i === current) return;
+    current = i;
+    tabs.forEach(function (tab, j) {
+      var on = j === i;
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      panels[j].classList.toggle('active', on);
+    });
+    load(i);
+    try { history.replaceState(null, '', '#' + tabs[i].getAttribute('data-src').replace(/\.html$/, '')); } catch (e) {}
+  }
+
+  tabs.forEach(function (tab, i) {
+    tab.addEventListener('click', function () { select(i); });
+  });
+
+  document.querySelector('.tabs').addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    var next = (current + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    tabs[next].focus();
+    select(next);
+  });
+
+  reload.addEventListener('click', function () {
+    if (current < 0) return;
+    var panel = panels[current];
+    var iframe = panel.querySelector('iframe');
+    if (iframe) iframe.src = iframe.src;
+  });
+
+  var startIndex = 0;
+  var hash = (location.hash || '').replace(/^#/, '');
+  if (hash) {
+    tabs.forEach(function (tab, i) {
+      if (tab.getAttribute('data-src').replace(/\.html$/, '') === hash) startIndex = i;
+    });
+  }
+  select(startIndex);
+})();
+</script>
+</body>
+</html>
